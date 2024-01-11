@@ -1,5 +1,6 @@
 from flask import Flask, request, jsonify
 from flask_sqlalchemy import SQLAlchemy
+from flask_cors import CORS, cross_origin
 from datetime import datetime, timedelta
 import jwt
 from functools import wraps
@@ -10,15 +11,21 @@ app = Flask(__name__)
 app.config['SECRET_KEY'] = '12345'
 app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql://postgres:postgres@localhost/cadastro-veiculos'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-
 db = SQLAlchemy(app)
+cors = CORS(app)
+
+
+
 
 class Veiculo(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    nome = db.Column(db.String(50), nullable=False)
-    marca = db.Column(db.String(50), nullable=False)
-    modelo = db.Column(db.String(50), nullable=False)
+    nome = db.Column(db.String(100), nullable=False)
+    marca = db.Column(db.String(100), nullable=False)
+    modelo = db.Column(db.String(100), nullable=False)
     foto = db.Column(db.String(100), nullable=False)
+    valor = db.Column(db.String(100))
+    quilometro = db.Column(db.String(100))
+    
 
 
 def generate_token(email, password):
@@ -66,8 +73,33 @@ def login():
     return jsonify({'message': 'Credenciais inválidas'}), 401
 
 
+
+# ... (parte anterior do código)
+
+@app.route('/veiculos/<int:veiculo_id>', methods=['GET'])
+@cross_origin()
+def find_by_id(veiculo_id):
+    veiculo = Veiculo.query.get(veiculo_id)
+    if veiculo:
+        veiculo_json = {
+            'id': veiculo.id,
+            'nome': veiculo.nome,
+            'marca': veiculo.marca,
+            'modelo': veiculo.modelo,
+            'foto': veiculo.foto,
+            'valor': veiculo.valor,
+            'quilometro': veiculo.quilometro,
+        }
+        return jsonify(veiculo_json)
+    else:
+        return jsonify({"msg": "Veículo não encontrado"}), 404
+
+# ... (restante do código)
+
+
+
 @app.route('/veiculos', methods=['GET'])
-@token_required
+@cross_origin()
 def get_veiculos():
     veiculos = Veiculo.query.all()
 
@@ -78,7 +110,9 @@ def get_veiculos():
             'nome': veiculo.nome,
             'marca': veiculo.marca,
             'modelo': veiculo.modelo,
-            'foto': veiculo.foto
+            'foto': veiculo.foto,
+            'valor': veiculo.valor,
+            'quilometro': veiculo.quilometro,
         }
         veiculos_json.append(veiculo_data)
 
@@ -86,7 +120,7 @@ def get_veiculos():
 
 
 @app.route('/veiculos', methods=['POST'])
-@token_required
+@cross_origin()
 def create_veiculo():
     data = request.get_json()
 
@@ -94,7 +128,9 @@ def create_veiculo():
         nome=data['nome'],
         marca=data['marca'],
         modelo=data['modelo'],
-        foto=data['foto']
+        foto=data['foto'],
+        valor=data['valor'],
+        quilometro=data['quilometro']
     )
 
     db.session.add(novo_veiculo)
@@ -103,7 +139,7 @@ def create_veiculo():
     return jsonify({'message': 'Veículo criado com sucesso!'})
 
 @app.route('/veiculos/<int:veiculo_id>', methods=['PUT'])
-@token_required
+@cross_origin()
 def update_veiculo(veiculo_id):
     veiculo = Veiculo.query.get(veiculo_id)
 
@@ -116,13 +152,15 @@ def update_veiculo(veiculo_id):
     veiculo.marca = data['marca']
     veiculo.modelo = data['modelo']
     veiculo.foto = data['foto']
+    veiculo.valor = data['valor']
+    veiculo.quilometro = data['quilometro']
 
     db.session.commit()
 
     return jsonify({'message': 'Veículo atualizado com sucesso!'})
 
 @app.route('/veiculos/<int:veiculo_id>', methods=['DELETE'])
-@token_required
+@cross_origin()
 def delete_veiculo(veiculo_id):
     veiculo = Veiculo.query.get(veiculo_id)
 
